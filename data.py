@@ -69,6 +69,11 @@ class Film:
             data[t, :, :] = self.frames[t].data
         return data
 
+    def getShape(self) -> Tuple[int, int, int]:
+        T = len(self.frames)
+        H, W = self.frames[0].data.shape
+        return (T, H, W)
+
     def getFrameByTime(self, time: dt.datetime) -> Optional[Frame]:
         for frame in self.frames:
             if frame.time == time:
@@ -76,6 +81,8 @@ class Film:
         return None
 
     def getFrameAtIndex(self, index: int) -> Optional[Frame]:
+        if len(self.frames) <= index:
+            return None
         return self.frames[index]
 
     def getTimeRange(self) -> Tuple[dt.datetime, dt.datetime]:
@@ -347,16 +354,22 @@ def analyseAndSaveTimeRange(fromTime, toTime, maxWorkers):
 
 
 class DataGenerator(k.utils.Sequence):
-    def __init__(self, dataDir, startDate: dt.datetime, endDate: dt.datetime, nrBatchesPerEpoch, batchSize, timeseriesLength, verbose=True):
+    def __init__(self, dataDir, startDate: dt.datetime, endDate: dt.datetime, nrBatchesPerEpoch, batchSize, timeseriesLength, timeseriesOffset, verbose=True):
         self.dataDir = dataDir
         self.startDate = startDate
         self.endDate = endDate
         self.nrBatchesPerEpoch = nrBatchesPerEpoch
         self.batchSize = batchSize
         self.timeseriesLength = timeseriesLength
+        self.timeseriesOffset = timeseriesOffset
         self.fileNames = self.getFileNames(dataDir, startDate, endDate)
         self.shuffleFileOrder()
-        self.filesUsedInThisEpoch: List[str] = []
+
+        # current state
+        self.currentFileIndex = 0
+        self.currentStorm = loadStormFromPickle(self.fileNames[self.currentFileIndex])
+        self.currentTime = 2
+
         self.verbose = verbose
 
 
@@ -368,41 +381,43 @@ class DataGenerator(k.utils.Sequence):
 
     def __getitem__(self, batchNr):
 
-        fileIndex = len(self.filesUsedInThisEpoch)
-
         dataPoints = np.zeros((self.batchSize, self.timeseriesLength, frameWidth, frameHeight, 1))
         labels = np.zeros((self.batchSize, 4))
 
         sampleNr = 0
         while sampleNr < self.batchSize:
 
-            fileName = self.fileNames[fileIndex]
-            storm = loadStormFromPickle(fileName)
-            stormData = storm.getNpData()
-            T, H, W = stormData.shape
+            T, H, W = self.currentStorm.getShape()
 
-            for splitT in range(2, T, 5):
+            if self.currentTime < T - 1:
+                startIndex = max(0, self.currentTime - self.timeseriesLength)
+                endIndex = self.currentTime
 
-                stormDataUpToT = stormData[0:splitT]
-                nextFrame = storm.getFrameAtIndex(splitT + 1)
+                stormDataUpToT = self.currentStorm.getNpData()[startIndex : endIndex]
+                nextFrame = self.currentStorm.getFrameAtIndex(self.currentTime + 1)
                 labelsArr = self.labelsToArr(nextFrame.labels)
+
                 dataPoints[sampleNr, :, :, :, 0] = padArrayTo(stormDataUpToT, self.timeseriesLength)
                 labels[sampleNr] = labelsArr
 
+                if self.verbose:
+                    print(f"--- now at batch {batchNr}, sample {sampleNr}. using storm {self.currentStorm.getId()}. getting data from t {startIndex} to t {endIndex}. Labels: {labelsArr}")
+
                 sampleNr += 1
+                self.currentTime += self.timeseriesOffset
 
-                if sampleNr >= self.batchSize:
-                    break
-
-            fileIndex += 1
-            self.filesUsedInThisEpoch.append(fileName)
+            else:
+                self.currentFileIndex += 1
+                if(self.currentFileIndex >= len(self.fileNames)):
+                    self.currentFileIndex = 0
+                self.currentStorm = loadStormFromPickle(self.fileNames[self.currentFileIndex])
+                self.currentTime = 2
 
         return dataPoints, labels
 
 
     def on_epoch_end(self):
-        print("shuffling ....")
-        self.shuffleFileOrder()
+        pass
 
 
     def getFileNames(self, dataDir, startDate, endDate):
@@ -441,7 +456,7 @@ if __name__ == '__main__':
     # analyseAndSaveTimeRange(fromTime, toTime, 4)
     batchSize = 4
     timeSteps = 10
-    training_generator = DataGenerator(processedDataDir, fromTime, toTime, 4, batchSize, timeSteps)
+    training_generator = DataGenerator(processedDataDir, fromTime, toTime, 4, batchSize, timeSteps, 5, True)
     for x, y in training_generator:
         print(x.shape)
         print(y.shape)

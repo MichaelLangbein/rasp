@@ -28,11 +28,9 @@ validationStart = dt.datetime(2016, 7, 1)
 validationEnd = dt.datetime(2016, 7, 15)
 
 
-analyseAndSaveTimeRange(dt.datetime(2016, 6, 11), validationEnd, 4)
-
 # getting generators
-training_generator = DataGenerator(processedDataDir, trainingStart, trainingEnd, nrBatchesPerEpoch, batchSize, timeSteps, False)
-validation_generator = DataGenerator(processedDataDir, validationStart, validationEnd, nrBatchesPerEpoch, batchSize, timeSteps, False)
+training_generator = DataGenerator(processedDataDir, trainingStart, trainingEnd, nrBatchesPerEpoch, batchSize, timeSteps, 5, False)
+validation_generator = DataGenerator(processedDataDir, validationStart, validationEnd, nrBatchesPerEpoch, batchSize, timeSteps, 5, False)
 
 
 model = k.models.Sequential([

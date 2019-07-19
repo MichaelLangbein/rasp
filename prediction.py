@@ -1,16 +1,16 @@
 import os
-import tensorflow.keras as k
 import datetime as dt
+from config import rawDataDir, processedDataDir, tfDataDir
 import data as rd
 from data import rawDataDir, processedDataDir, frameHeight, frameWidth, frameLength, Film, Frame, analyseAndSaveTimeRange
 import numpy as np
-import plotting as pl
+import tensorflow.keras as k
 import matplotlib.pyplot as plt
-from config import rawDataDir, processedDataDir, tfDataDir
+import plotting as pl
 
 
 print("----starting up-----")
-modelPath = os.getcwd() + "/1563294671_fullyConnected/simpleRadPredModel.h5"
+modelPath = resultDir = f"{tfDataDir}/" + "/SimpleFullyConnected_1563530788/SimpleFullyConnected.h5"
 maxBatchesPerEpoch = 100
 batchSize = 4
 timeSteps = int(5 * 60 / 5)
@@ -18,7 +18,7 @@ timeSteps = int(5 * 60 / 5)
 
 
 model = k.models.load_model(modelPath)
-generator = rd.DataGenerator(processedDataDir, dt.datetime(2016, 6, 1), dt.datetime(2016, 6, 30), maxBatchesPerEpoch, batchSize, timeSteps, False)
+generator = rd.DataGenerator(processedDataDir, dt.datetime(2016, 7, 1), dt.datetime(2016, 7, 15), maxBatchesPerEpoch, batchSize, timeSteps, 5, True)
 
 
 
@@ -28,7 +28,7 @@ def getMaxIndex(list):
 
 
 print("----predicting----")
-maxSamples = 300
+maxSamples = 1000
 i = 0
 results = []
 for dataIn, dataOut in generator:
