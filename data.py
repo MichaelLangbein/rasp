@@ -406,9 +406,11 @@ class DataGenerator(k.utils.Sequence):
 
         for sampleNr in range(self.batchSize):
             X, y = self.readHeads[sampleNr % 3].getNextStorm()
+            #  X = np.random.random((self.xDim[1], self.xDim[2], self.xDim[3]))
+            #  y = [1, 0, 0, 0]
             dataPoints[sampleNr, :, :, :, 0] = X
             labels[sampleNr] = y
-
+        print(f"now returning {self.batchSize} samples for batch {batchNr}")
         return dataPoints, labels
 
 

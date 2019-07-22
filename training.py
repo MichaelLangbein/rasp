@@ -35,6 +35,7 @@ model = k.models.Sequential([
     k.layers.MaxPooling3D(pool_size=(1, 92, 92), data_format="channels_last"),  # only return wheather a feature is or is not present
     k.layers.Reshape((52, 100)),  # 52 timesteps of 100 features each
     k.layers.LSTM(30),  # return 30 labels once full timeseries has been seen
+    #  k.layers.Flatten(),
     k.layers.Dense(30, name="dense1", activation=k.activations.sigmoid),
     k.layers.Dense(4, name="dense2", activation=k.activations.softmax)
 ])
@@ -69,11 +70,12 @@ tensorBoard = k.callbacks.TensorBoard(
 history = model.fit_generator(
     training_generator,
     epochs=nrEpochs,
-    verbose=2,
+    verbose=1,
     callbacks=[modelSaver, tensorBoard],
     validation_data=validation_generator,
-    use_multiprocessing=True,
-    workers=4,
+    use_multiprocessing=False
+    # use_multiprocessing=True,
+    # workers=4,
 )
 
 
