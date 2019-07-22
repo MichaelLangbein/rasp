@@ -301,6 +301,25 @@ def extractStorms(film: Film, threshold) -> List[Film]:
     return storms
 
 
+def getRandomStorm(T, H, W):
+    X = np.random.random((T, H, W))
+    offset = rdm.random() * 3.2
+    leng = rdm.random() * 3.2 * 1.5
+    maxAmp = rdm.random() * 15
+    for t in range(T):
+        X[t] *= np.sin(leng * float(t) / float(T) + offset) * maxAmp
+    XTplus1 = np.sin(leng * float(T+1) / float(T) + offset) * maxAmp
+    if np.max(XTplus1) > 10:
+        y = [0, 0, 0, 1]
+    elif np.max(XTplus1) > 6:
+        y = [0, 0, 1, 0]
+    elif np.max(XTplus1) > 2:
+        y = [0, 1, 0, 0]
+    else: 
+        y = [1, 0, 0, 0]
+    return X, y
+
+
 def analyseDay(date: dt.datetime):
     print(f"analysing day {date}")
     films = splitDay(date)
@@ -408,11 +427,10 @@ class DataGenerator(k.utils.Sequence):
 
         for sampleNr in range(self.batchSize):
             # X, y = self.readHeads[sampleNr % 3].getNextStorm()
-            X = np.random.random((60, 100, 100)) * np.sin(sampleNr) * 10
-            y = [0, 0, 0, 0]
-            y[sampleNr % 4] = 1
+            X, y = getRandomStorm(60, 100, 100)
             dataPoints[sampleNr, :, :, :, 0] = X
             labels[sampleNr] = y
+            print(y)
         print(f"now returning {self.batchSize} samples for batch {batchNr}")
         return dataPoints, labels
 
@@ -429,6 +447,7 @@ class DataGenerator(k.utils.Sequence):
             if tlIndx and fromTime and toTime:
                 if startDate < fromTime < endDate and startDate < toTime < endDate:
                     filteredNames.append(processedDataDir + "/" + fileName)
+        print(f"found {len(filteredNames)} files")
         return filteredNames
 
 
