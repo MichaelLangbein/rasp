@@ -21,6 +21,54 @@ from typing import Callable, List
 
 
 
+def plotValidationHitGrid(model, generator, maxSamples):
+
+    def getMaxIndex(list):
+        return np.where(list == np.amax(list))
+
+    results = []
+    for dataIn, dataOut in generator:
+
+        predictions = model.predict(dataIn)
+
+        for r in range(len(predictions)):
+            target = dataOut[r]
+            maxIndexTarget = getMaxIndex(target)
+            prediction = predictions[r]
+            maxIndexPrediction = getMaxIndex(prediction)
+            print(f"{i}  prediction: {prediction}    target: {target}   correctly predicted {maxIndexPrediction == maxIndexTarget}")
+            results.append({"prediction": prediction, "target": target})
+            i += 1
+            if i > maxSamples:
+                break
+        if i > maxSamples:
+            break
+
+    hitGrid = np.zeros((4, 4))
+    for result in results:
+        targetCat = getMaxIndex(result["target"])
+        predicCat = getMaxIndex(result["prediction"])
+        hitGrid[targetCat, predicCat] += 1
+
+    categories = ["keine", "starkregen", "heftiger", "extremer"]
+    fig, ax = plt.subplots()
+    im = ax.imshow(hitGrid)
+    ax.set_xticks(np.arange(4))
+    ax.set_yticks(np.arange(4))
+    ax.set_xticklabels(categories)
+    ax.set_yticklabels(categories)
+    ax.set_ylabel("target")
+    ax.set_xlabel("predicted")
+    for i in range(4):
+        for j in range(4):
+            text = ax.text(j, i, hitGrid[i, j], ha="center", va="center", color="w")
+    fig.tight_layout()
+    return fig, ax
+
+
+
+
+
 def showActivation(model, inputSample, layerName, channel):
 
     # We turn the one input into a batch of size one
@@ -129,15 +177,15 @@ def plotRadolanFrames(films, rows, cols, time):
     plt.show()
 
 
-def saveMultiPlot(filePath: str, dataList: List, xlabel: str, ylabel: str, title: str, legendList: List):
+def plotMultiPlot(dataList: List, xlabel: str, ylabel: str, title: str, legendList: List):
+    fig, ax = plt.subplots()
     for data in dataList:
-        plt.plot(data)
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.title(title)
-    plt.legend(legendList, loc='upper right')
-    plt.savefig(filePath)
-    plt.clf()
+        ax.plot(data)
+    ax.xlabel(xlabel)
+    ax.ylabel(ylabel)
+    ax.title(title)
+    ax.legend(legendList, loc='upper right')
+    return fig, ax
 
 
 def plotRadolanData(axes, data, attrs, clabel=None):

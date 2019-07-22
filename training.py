@@ -1,23 +1,20 @@
+import os
+import sys
+import time
+import datetime as dt
 import numpy as np
 import tensorflow.keras as k
-from data import Film, Frame, analyseAndSaveTimeRange, DataGenerator
+from data import Film, Frame, analyseAndSaveTimeRange, DataGenerator, frameHeight, frameWidth, frameLength
 from config import rawDataDir, processedDataDir, tfDataDir
-import datetime as dt
-import time
 import plotting as p
-import os
 
 
-modelName = "SimpleFullyConnected"
-batchSize = 10
-nrBatchesPerEpoch = 100
-nrEpochs = 20
-validationSteps = 10
-nrValidationSamples = 50
+modelName = "SimpleConv3DGruNet"
+batchSize = 4
+nrBatchesPerEpoch = 10
+nrEpochs = 5
 timeSteps = int(5 * 60 / 5)
-imageSize = 100
-imageWidth = imageSize
-imageHeight = imageSize
+timeSeriesOffset = 5
 channels = 1
 
 
@@ -29,20 +26,17 @@ validationEnd = dt.datetime(2016, 7, 15)
 
 
 # getting generators
-training_generator = DataGenerator(processedDataDir, trainingStart, trainingEnd, nrBatchesPerEpoch, batchSize, timeSteps, 5, False)
-validation_generator = DataGenerator(processedDataDir, validationStart, validationEnd, nrBatchesPerEpoch, batchSize, timeSteps, 5, False)
+training_generator = DataGenerator(processedDataDir, trainingStart, trainingEnd, batchSize, timeSteps, timeSeriesOffset, nrBatchesPerEpoch)
+validation_generator = DataGenerator(processedDataDir, validationStart, validationEnd, batchSize, timeSteps, timeSeriesOffset, nrBatchesPerEpoch)
 
 
 model = k.models.Sequential([
-    k.layers.Flatten(input_shape=(timeSteps, imageHeight, imageWidth, channels)),
-    k.layers.Dense(50, name="dense1", activation=k.activations.sigmoid),
-    k.layers.Dense(50, name="dense2", activation=k.activations.sigmoid),
-    k.layers.Dropout(0.2),
-    k.layers.Dense(50, name="dense3", activation=k.activations.sigmoid),
-    k.layers.Dense(50, name="dense4", activation=k.activations.sigmoid),
-    k.layers.Dropout(0.2),
-    k.layers.Dense(50, name="dense5", activation=k.activations.sigmoid),
-    k.layers.Dense(4, name="dense6", activation=k.activations.softmax)
+    k.layers.Conv3D(100, (9, 9, 9), name="conv1", activation='relu', input_shape=(timeSteps, frameHeight, frameWidth, channels)),  # learn 100 tempo-spatial features
+    k.layers.MaxPooling3D(pool_size=(1, 92, 92), data_format="channels_last"),  # only return wheather a feature is or is not present
+    k.layers.Reshape((52, 100)),  # 52 timesteps of 100 features each
+    k.layers.LSTM(30),  # return 30 labels once full timeseries has been seen
+    k.layers.Dense(30, name="dense1", activation=k.activations.sigmoid),
+    k.layers.Dense(4, name="dense2", activation=k.activations.softmax)
 ])
 
 
@@ -53,7 +47,6 @@ model.compile(
 )
 
 print(model.summary())
-
 
 
 modelSaver = k.callbacks.ModelCheckpoint(
@@ -91,12 +84,18 @@ model.save(f"{tfDataDir}/latestRadPredModel.h5")
 model.save(f"{resultDir}/{modelName}.h5")
 np.savez(f"{resultDir}/history.npz", history.history)
 
-p.saveMultiPlot(f"{resultDir}/loss.png",
-                [history.history['loss'], history.history['val_loss']],
-                "epoch", "loss", "loss",
-                ["training", "validation"])
+fig, ax = p.plotMultiPlot([history.history['loss'], history.history['val_loss']],
+                          "epoch", "loss", "loss",
+                          ["training", "validation"])
+fig.save(f"{resultDir}/loss.png")
 
-p.saveMultiPlot(f"{resultDir}/accuracy.png",
-                [history.history['categorical_accuracy'], history.history['val_categorical_accuracy']],
-                "epoch", "acuracy", "acuracy",
-                ["training", "validation"])
+fig, ax = p.plotMultiPlot([history.history['categorical_accuracy'], history.history['val_categorical_accuracy']],
+                          "epoch", "acuracy", "acuracy",
+                          ["training", "validation"])
+fig.save(f"{resultDir}/accuracy.png")
+
+fig, ax = p.plotValidationHitGrid(model, validation_generator, 500)
+fig.save(f"{resultDir}/hitGrid.png")
+
+with open(f"{resultDir}/{modelName}_description.txt", "w") as f:
+    f.write(model.summary())

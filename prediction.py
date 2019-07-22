@@ -10,7 +10,7 @@ import plotting as pl
 
 
 print("----starting up-----")
-modelPath = resultDir = f"{tfDataDir}/" + "/SimpleFullyConnected_1563530788/SimpleFullyConnected.h5"
+modelPath = resultDir = f"{tfDataDir}/" + "/SimpleConvolutional3D_1563548170/SimpleConvolutional3D.h5"
 maxBatchesPerEpoch = 100
 batchSize = 4
 timeSteps = int(5 * 60 / 5)

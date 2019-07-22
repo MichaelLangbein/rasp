@@ -10,6 +10,7 @@ import h5py as h5
 import pickle
 import concurrent.futures
 import tensorflow.keras as k
+import threading as thr
 import plotting as p
 from typing import List, Tuple, Union, Optional
 from config import rawDataDir, processedDataDir
@@ -243,6 +244,19 @@ def stormHasLabel(storm: Film, label: str):
     return False
 
 
+def labelsToArr(labels: dict) -> List[int]:
+    intLabels = [0, 0, 0, 0]
+    if labels["hatExtremerSr"]:
+        intLabels[3] = 1
+    elif labels["hatHeftigerSr"]:
+        intLabels[2] = 1
+    elif labels["hatStarkregen"]:
+        intLabels[1] = 1
+    else:
+        intLabels[0] = 1
+    return intLabels
+
+
 def padArrayTo(stormData, targetT):
 
     T, *otherDims = stormData.shape
@@ -354,64 +368,46 @@ def analyseAndSaveTimeRange(fromTime, toTime, maxWorkers):
 
 
 class DataGenerator(k.utils.Sequence):
-    def __init__(self, dataDir, startDate: dt.datetime, endDate: dt.datetime, nrBatchesPerEpoch, batchSize, timeseriesLength, timeseriesOffset, verbose=True):
+    def __init__(self, dataDir, startDate: dt.datetime, endDate: dt.datetime, batchSize, timeseriesLength, timeseriesOffset, nrBatchesPerEpoch=None):
         self.dataDir = dataDir
         self.startDate = startDate
         self.endDate = endDate
-        self.nrBatchesPerEpoch = nrBatchesPerEpoch
         self.batchSize = batchSize
-        self.timeseriesLength = timeseriesLength
-        self.timeseriesOffset = timeseriesOffset
-        self.fileNames = self.getFileNames(dataDir, startDate, endDate)
-        self.shuffleFileOrder()
 
-        # current state
-        self.currentFileIndex = 0
-        self.currentStorm = loadStormFromPickle(self.fileNames[self.currentFileIndex])
-        self.currentTime = 2
+        fileNames = self.getFileNames(dataDir, startDate, endDate)
+        rdm.shuffle(fileNames)
+        d = int(len(fileNames) / 3)
+        self.fileNames = fileNames
 
-        self.verbose = verbose
+        self.readHeads = [
+            ReadHead(fileNames[0: d], timeseriesLength, timeseriesOffset),
+            ReadHead(fileNames[d: 2 * d], timeseriesLength, timeseriesOffset),
+            ReadHead(fileNames[2 * d :], timeseriesLength, timeseriesOffset)
+        ]
 
+        T, H, W = self.readHeads[0].currentStorm.getNpData().shape
+        self.xDim = (batchSize, timeseriesLength, H, W, 1)
+        self.yDim = (batchSize, 4)
+
+        if nrBatchesPerEpoch:
+            self.nrBatchesPerEpoch = nrBatchesPerEpoch
+        else:
+            self.nrBatchesPerEpoch = int(5 * len(self.fileNames) / self.batchSize)
 
     def __len__(self):
-        actualMaxNrBatches = int(np.floor(len(self.fileNames) / self.batchSize))
-        givenMaxNrBatches = self.nrBatchesPerEpoch
-        return min(actualMaxNrBatches, givenMaxNrBatches)
+        return self.nrBatchesPerEpoch
 
 
     def __getitem__(self, batchNr):
+        print(f"now at batchNr {batchNr}")
 
-        dataPoints = np.zeros((self.batchSize, self.timeseriesLength, frameWidth, frameHeight, 1))
-        labels = np.zeros((self.batchSize, 4))
+        dataPoints = np.zeros(self.xDim)
+        labels = np.zeros(self.yDim)
 
-        sampleNr = 0
-        while sampleNr < self.batchSize:
-
-            T, H, W = self.currentStorm.getShape()
-
-            if self.currentTime < T - 1:
-                startIndex = max(0, self.currentTime - self.timeseriesLength)
-                endIndex = self.currentTime
-
-                stormDataUpToT = self.currentStorm.getNpData()[startIndex : endIndex]
-                nextFrame = self.currentStorm.getFrameAtIndex(self.currentTime + 1)
-                labelsArr = self.labelsToArr(nextFrame.labels)
-
-                dataPoints[sampleNr, :, :, :, 0] = padArrayTo(stormDataUpToT, self.timeseriesLength)
-                labels[sampleNr] = labelsArr
-
-                if self.verbose:
-                    print(f"--- now at batch {batchNr}, sample {sampleNr}. using storm {self.currentStorm.getId()}. getting data from t {startIndex} to t {endIndex}. Labels: {labelsArr}")
-
-                sampleNr += 1
-                self.currentTime += self.timeseriesOffset
-
-            else:
-                self.currentFileIndex += 1
-                if(self.currentFileIndex >= len(self.fileNames)):
-                    self.currentFileIndex = 0
-                self.currentStorm = loadStormFromPickle(self.fileNames[self.currentFileIndex])
-                self.currentTime = 2
+        for sampleNr in range(self.batchSize):
+            X, y = self.readHeads[sampleNr % 3].getNextStorm()
+            dataPoints[sampleNr, :, :, :, 0] = X
+            labels[sampleNr] = y
 
         return dataPoints, labels
 
@@ -431,22 +427,46 @@ class DataGenerator(k.utils.Sequence):
         return filteredNames
 
 
-    def shuffleFileOrder(self):
-        rdm.shuffle(self.fileNames)
 
 
-    def labelsToArr(self, labels: dict) -> List[int]:
-        intLabels = [0, 0, 0, 0]
-        if labels["hatExtremerSr"]:
-            intLabels[3] = 1
-        elif labels["hatHeftigerSr"]:
-            intLabels[2] = 1
-        elif labels["hatStarkregen"]:
-            intLabels[1] = 1
+class ReadHead:
+
+    def __init__(self, fileNames, timeseriesLength, timeseriesOffset):
+        self.fileNames = fileNames
+        self.timeseriesLength = timeseriesLength
+        self.timeseriesOffset = timeseriesOffset
+        self.currentFileIndex = 0
+        self.currentStorm = loadStormFromPickle(self.fileNames[self.currentFileIndex])
+        self.currentTime = 2
+
+
+    def getNextStorm(self):
+
+        T, H, W = self.currentStorm.getShape()
+
+        if self.currentTime < T - 1:
+            startIndex = max(0, self.currentTime - self.timeseriesLength)
+            endIndex = self.currentTime
+            print(f"thread {thr.get_ident()}: using storm from {self.fileNames[self.currentFileIndex]} with t {startIndex} - {endIndex}")
+
+            stormDataUpToT = self.currentStorm.getNpData()[startIndex : endIndex]
+            nextFrame = self.currentStorm.getFrameAtIndex(self.currentTime + 1)
+            labels = labelsToArr(nextFrame.labels)
+            dataPoints = padArrayTo(stormDataUpToT, self.timeseriesLength)
+
+            self.currentTime += self.timeseriesOffset
+
         else:
-            intLabels[0] = 1
-        return intLabels
+            self.currentFileIndex += 1
+            if(self.currentFileIndex >= len(self.fileNames)):
+                self.currentFileIndex = 0
+            print(f"thread {thr.get_ident()}: loading storm from {self.fileNames[self.currentFileIndex]}")
+            self.currentStorm = loadStormFromPickle(self.fileNames[self.currentFileIndex])
+            self.currentTime = 2
 
+            dataPoints, labels = self.getNextStorm()
+
+        return dataPoints, labels
 
 
 
@@ -455,8 +475,9 @@ if __name__ == '__main__':
     toTime = dt.datetime(2016, 6, 10)
     # analyseAndSaveTimeRange(fromTime, toTime, 4)
     batchSize = 4
-    timeSteps = 10
-    training_generator = DataGenerator(processedDataDir, fromTime, toTime, 4, batchSize, timeSteps, 5, True)
+    timeSteps = int(5 * 60 / 5)
+    timeseriesOffset = 5
+    training_generator = DataGenerator(processedDataDir, fromTime, toTime, batchSize, timeSteps, timeseriesOffset)
     for x, y in training_generator:
         print(x.shape)
         print(y.shape)
