@@ -379,15 +379,15 @@ class DataGenerator(k.utils.Sequence):
         d = int(len(fileNames) / 3)
         self.fileNames = fileNames
 
-        self.readHeads = [
-            ReadHead(fileNames[0: d], timeseriesLength, timeseriesOffset),
-            ReadHead(fileNames[d: 2 * d], timeseriesLength, timeseriesOffset),
-            ReadHead(fileNames[2 * d :], timeseriesLength, timeseriesOffset)
-        ]
+        # self.readHeads = [
+        #     ReadHead(fileNames[0: d], timeseriesLength, timeseriesOffset),
+        #     ReadHead(fileNames[d: 2 * d], timeseriesLength, timeseriesOffset),
+        #     ReadHead(fileNames[2 * d :], timeseriesLength, timeseriesOffset)
+        # ]
 
-        T, H, W = self.readHeads[0].currentStorm.getNpData().shape
-        self.xDim = (batchSize, timeseriesLength, H, W, 1)
-        self.yDim = (batchSize, 4)
+        # T, H, W = self.readHeads[0].currentStorm.getNpData().shape
+        # self.xDim = (batchSize, timeseriesLength, H, W, 1)
+        # self.yDim = (batchSize, 4)
 
         if nrBatchesPerEpoch:
             self.nrBatchesPerEpoch = nrBatchesPerEpoch
@@ -401,13 +401,16 @@ class DataGenerator(k.utils.Sequence):
     def __getitem__(self, batchNr):
         print(f"now at batchNr {batchNr}")
 
-        dataPoints = np.zeros(self.xDim)
-        labels = np.zeros(self.yDim)
+        # dataPoints = np.zeros(self.xDim)
+        # labels = np.zeros(self.yDim)
+        dataPoints = np.zeros((self.batchSize, 60, 100, 100, 1))
+        labels = np.zeros((self.batchSize, 4))
 
         for sampleNr in range(self.batchSize):
-            X, y = self.readHeads[sampleNr % 3].getNextStorm()
-            #  X = np.random.random((self.xDim[1], self.xDim[2], self.xDim[3]))
-            #  y = [1, 0, 0, 0]
+            # X, y = self.readHeads[sampleNr % 3].getNextStorm()
+            X = np.random.random((60, 100, 100)) * np.sin(sampleNr) * 10
+            y = [0, 0, 0, 0]
+            y[sampleNr % 4] = 1
             dataPoints[sampleNr, :, :, :, 0] = X
             labels[sampleNr] = y
         print(f"now returning {self.batchSize} samples for batch {batchNr}")
