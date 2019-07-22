@@ -303,17 +303,17 @@ def extractStorms(film: Film, threshold) -> List[Film]:
 
 def getRandomStorm(T, H, W):
     X = np.random.random((T, H, W))
-    offset = rdm.random() * 3.2
-    leng = rdm.random() * 3.2 * 1.5
+    offset = rdm.random() * 3.15
+    leng = rdm.random() * 3.15 * 1.5
     maxAmp = rdm.random() * 15
     for t in range(T):
-        X[t] *= np.sin(leng * float(t) / float(T) + offset) * maxAmp
-    XTplus1 = np.sin(leng * float(T+1) / float(T) + offset) * maxAmp
+        X[t] *= np.abs(np.sin(leng * float(t) / float(T) + offset) * maxAmp)
+    XTplus1 = np.abs(np.sin(leng * float(T+1) / float(T) + offset) * maxAmp)
     if np.max(XTplus1) > 10:
         y = [0, 0, 0, 1]
-    elif np.max(XTplus1) > 6:
+    elif np.max(XTplus1) > 5:
         y = [0, 0, 1, 0]
-    elif np.max(XTplus1) > 2:
+    elif np.max(XTplus1) > 1:
         y = [0, 1, 0, 0]
     else: 
         y = [1, 0, 0, 0]
