@@ -27,6 +27,7 @@ def plotValidationHitGrid(model, generator, maxSamples):
         return np.where(list == np.amax(list))
 
     results = []
+    i = 0
     for dataIn, dataOut in generator:
 
         predictions = model.predict(dataIn)
@@ -181,9 +182,9 @@ def plotMultiPlot(dataList: List, xlabel: str, ylabel: str, title: str, legendLi
     fig, ax = plt.subplots()
     for data in dataList:
         ax.plot(data)
-    ax.xlabel(xlabel)
-    ax.ylabel(ylabel)
-    ax.title(title)
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
     ax.legend(legendList, loc='upper right')
     return fig, ax
 

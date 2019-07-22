@@ -449,7 +449,6 @@ class ReadHead:
         if self.currentTime < T - 1:
             startIndex = max(0, self.currentTime - self.timeseriesLength)
             endIndex = self.currentTime
-            print(f"thread {thr.get_ident()}: using storm from {self.fileNames[self.currentFileIndex]} with t {startIndex} - {endIndex}")
 
             stormDataUpToT = self.currentStorm.getNpData()[startIndex : endIndex]
             nextFrame = self.currentStorm.getFrameAtIndex(self.currentTime + 1)
@@ -457,15 +456,16 @@ class ReadHead:
             dataPoints = padArrayTo(stormDataUpToT, self.timeseriesLength)
 
             self.currentTime += self.timeseriesOffset
+            print(f"thread {thr.get_ident()}: using storm from {self.fileNames[self.currentFileIndex]} with t {startIndex} - {endIndex} with labels {labels}")
 
         else:
             self.currentFileIndex += 1
             if(self.currentFileIndex >= len(self.fileNames)):
                 self.currentFileIndex = 0
-            print(f"thread {thr.get_ident()}: loading storm from {self.fileNames[self.currentFileIndex]}")
             self.currentStorm = loadStormFromPickle(self.fileNames[self.currentFileIndex])
             self.currentTime = 2
 
+            print(f"thread {thr.get_ident()}: loading storm from {self.fileNames[self.currentFileIndex]}")
             dataPoints, labels = self.getNextStorm()
 
         return dataPoints, labels

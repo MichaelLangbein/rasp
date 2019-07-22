@@ -10,8 +10,8 @@ import plotting as p
 
 
 modelName = "SimpleConv3DGruNet"
-batchSize = 4
-nrBatchesPerEpoch = 10
+batchSize = 20
+nrBatchesPerEpoch = 30
 nrEpochs = 5
 timeSteps = int(5 * 60 / 5)
 timeSeriesOffset = 5
