@@ -207,8 +207,8 @@ def plotRadolanData(axes, data, attrs, clabel=None):
     plt.show()
 
 
-def movie(fig, axes, data: np.array, labels=[], interval=500):
-    img = plt.imshow(data[0])
+def movie(fig, axes, data: np.array, labels=[], interval=500, repeat=True, repeat_delay=1000):
+    img = axes.imshow(data[0])
     img.norm.vmin = np.min(data)
     img.norm.vmax = np.max(data)
 
@@ -218,10 +218,10 @@ def movie(fig, axes, data: np.array, labels=[], interval=500):
     def animate(frameNr):
         frame = data[frameNr]
         img.set_data(frame)
-        plt.set_xlabel("Frame {},  maxval {}".format(frameNr, np.max(frame)))
+        axes.set_xlabel("Frame {},  maxval {}".format(frameNr, np.max(frame)))
         return img, labelsString
 
-    animation = FuncAnimation(fig, animate, frames=range(data.shape[0]), interval=interval, repeat=True, repeat_delay=1000)
+    animation = FuncAnimation(fig, animate, frames=range(data.shape[0]), interval=interval, repeat=repeat, repeat_delay=repeat_delay)
     return animation
 
 

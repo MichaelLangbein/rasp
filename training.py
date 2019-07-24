@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 modelName = "Nowcast"
 
 batchSize = 20
-nrBatchesPerEpoch = 30
-nrEpochs = 4
+nrBatchesPerEpoch = 50
+nrEpochs = 8
 timeSteps = int(5 * 60 / 5)
 timeSeriesOffset = 5
 channels = 1
@@ -78,15 +78,49 @@ fig, ax = p.plotMultiPlot([history.history['loss'], history.history['val_loss']]
 fig.savefig(f"{resultDir}/loss.png")
 
 
+
+maxPlots = 5
+plot = 0
 for X, y in validation_generator:
     yPred = model.predict(X)
     for sample in range(validation_generator.batchSize):
-        fig, axes = plt.subplots(3)
-        axes[0].imshow(y[sample])
-        axes[0].set_title("target")
-        axes[1].imshow(yPred[sample])
-        axes[1].set_title("nowcast")
-        animation = p.movie(fig, axes[2], X, [])
-        axes[2].set_title("X")
+        fig, axes = plt.subplots(2, 3)
+
+        img1 = axes[0, 0].imshow(y[sample, :, :, 0])
+        img1.norm.vmin = np.min(X)
+        img1.norm.vmax = np.max(X)
+        axes[0, 0].set_title("target")
+
+        img2 = axes[0, 1].imshow(yPred[sample, :, :, 0])
+        img2.norm.vmin = np.min(X)
+        img2.norm.vmax = np.max(X)
+        axes[0, 1].set_title("nowcast")
+
+        img3 = axes[0, 2].imshow(np.abs( yPred[sample, :, :, 0] - y[sample, :, :, 0] ))
+        img3.norm.vmin = np.min(X)
+        img3.norm.vmax = np.max(X)
+        axes[0, 2].set_title("difference")
+
+        B, T, H, W, C = X.shape
+        movieDataList = []
+        for t in range(T):
+            frameData = X[sample, t, :, :, 0]
+            if np.max(frameData) >= 0.1 * np.max(X):
+                movieDataList.append(frameData)
+        movieDataList.append(yPred[sample, :, :, 0])
+        movieData = np.array(movieDataList)
+        animation1 = p.movie(fig, axes[1, 1], movieData, [], interval=300, repeat=True, repeat_delay=1000)
+        axes[1, 1].set_title("Predicted movie")
+
+        movieData2 = np.copy(movieData)
+        movieData2[-1] = y[sample, :, :, 0]
+        animation2 = p.movie(fig, axes[1, 0], movieData2, [], interval=300, repeat=True, repeat_delay=1000)
+        axes[1, 0].set_title("Real movie")
+
+
         plt.show()
-    break
+        plot += 1
+        if plot >= maxPlots:
+            break
+    if plot >= maxPlots:
+        break
