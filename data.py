@@ -308,7 +308,7 @@ def getRandomStorm(T, H, W):
     maxAmp = rdm.random() * 15
     for t in range(T):
         X[t] *= np.abs(np.sin(leng * float(t) / float(T) + offset) * maxAmp)
-    XTplus1 = np.abs(np.sin(leng * float(T+1) / float(T) + offset) * maxAmp)
+    XTplus1 = np.abs(np.sin(leng * float(T + 1) / float(T) + offset) * maxAmp)
     if np.max(XTplus1) > 10:
         y = [0, 0, 0, 1]
     elif np.max(XTplus1) > 5:
@@ -429,7 +429,6 @@ class DataGenerator(k.utils.Sequence):
 
         for sampleNr in range(self.batchSize):
             X, y = self.readHeads[sampleNr % 3].getNextStorm()
-            #  X, y = getRandomStorm(60, 100, 100)
             dataPoints[sampleNr, :, :, :, 0] = X
             labels[sampleNr, :, :, 0] = y
 
@@ -438,6 +437,23 @@ class DataGenerator(k.utils.Sequence):
 
     def on_epoch_end(self):
         pass
+
+
+
+class FakeNowcastReadHead:
+
+    def __init__(self, fileNames, timeseriesLength, timeseriesOffset):
+        T = timeseriesLength
+        H = 100
+        W = 100
+        self.xDim = (T, H, W)
+        self.yDim = (H, W)
+
+
+    def getNextStorm(self):
+        dataPoints, nextPoint = getRandomStorm(*self.xDim)
+        return dataPoints, nextPoint
+
 
 
 class NowcastReadHead:
