@@ -5,7 +5,7 @@ import datetime as dt
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as k
-from data import Film, Frame, analyseAndSaveTimeRange, DataGenerator, frameHeight, frameWidth, frameLength
+from data import Film, Frame, analyseAndSaveTimeRange, DataGenerator, frameHeight, frameWidth, frameLength, getFileNames
 from config import rawDataDir, processedDataDir, tfDataDir, trainingStart, trainingEnd, validationStart, validationEnd
 import plotting as p
 import matplotlib.pyplot as plt
@@ -15,25 +15,34 @@ modelName = "Nowcast"
 
 batchSize = 20
 nrBatchesPerEpoch = 50
-nrEpochs = 8
+nrEpochs = 12
 timeSteps = int(5 * 60 / 5)
 timeSeriesOffset = 5
 channels = 1
 
 
-training_generator = DataGenerator(processedDataDir, trainingStart, trainingEnd, batchSize, timeSteps, timeSeriesOffset, nrBatchesPerEpoch)
-validation_generator = DataGenerator(processedDataDir, validationStart, validationEnd, batchSize, timeSteps, timeSeriesOffset, nrBatchesPerEpoch)
+fileNames = getFileNames(processedDataDir, trainingStart, validationEnd)
+trainingFilenames = []
+validationFilenames = []
+for i, filename in enumerate(fileNames):
+    if i%4 == 0:
+        validationFilenames.append(filename)
+    else:
+        trainingFilenames.append(filename)
+training_generator = DataGenerator(trainingFilenames, batchSize, timeSteps, timeSeriesOffset, nrBatchesPerEpoch)
+validation_generator = DataGenerator(validationFilenames, batchSize, timeSteps, timeSeriesOffset, nrBatchesPerEpoch)
+
 
 
 input_tensor = k.Input(shape=(timeSteps, frameHeight, frameWidth, channels))
-convLstm = k.layers.ConvLSTM2D(1, kernel_size=(2, 2), padding="same", data_format="channels_last")(input_tensor)
+convLstm = k.layers.ConvLSTM2D(1, kernel_size=(2, 2), activation="relu", padding="same", data_format="channels_last")(input_tensor)
 model = k.models.Model(input_tensor, convLstm)
 
 #run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
 #run_metadata= tf.RunMetadata()
 
 model.compile(
-    optimizer=k.optimizers.Adam(),
+    optimizer=k.optimizers.Adam(lr=0.01),
     loss=k.losses.mse,
     #options=run_options, 
     #run_metadata=run_metadata

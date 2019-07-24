@@ -384,16 +384,21 @@ def analyseAndSaveTimeRange(fromTime, toTime, maxWorkers):
             analyseAndSaveDay(day)
 
 
+def getFileNames(dataDir, startDate, endDate):
+        filteredNames = []
+        fileNames = [f for f in listdir(processedDataDir) if isfile(join(processedDataDir, f))]
+        for fileName in fileNames:
+            tlIndx, fromTime, toTime = Film.parseId(fileName.strip(".pkl"))
+            if tlIndx and fromTime and toTime:
+                if startDate < fromTime < endDate and startDate < toTime < endDate:
+                    filteredNames.append(processedDataDir + "/" + fileName)
+        return filteredNames
 
 
 class DataGenerator(k.utils.Sequence):
-    def __init__(self, dataDir, startDate: dt.datetime, endDate: dt.datetime, batchSize, timeseriesLength, timeseriesOffset, nrBatchesPerEpoch=None):
-        self.dataDir = dataDir
-        self.startDate = startDate
-        self.endDate = endDate
+    def __init__(self, fileNames, batchSize, timeseriesLength, timeseriesOffset, nrBatchesPerEpoch=None):
         self.batchSize = batchSize
 
-        fileNames = self.getFileNames(dataDir, startDate, endDate)
         rdm.shuffle(fileNames)
         d = int(len(fileNames) / 3)
         self.fileNames = fileNames
@@ -433,20 +438,6 @@ class DataGenerator(k.utils.Sequence):
 
     def on_epoch_end(self):
         pass
-
-
-    def getFileNames(self, dataDir, startDate, endDate):
-        filteredNames = []
-        fileNames = [f for f in listdir(processedDataDir) if isfile(join(processedDataDir, f))]
-        for fileName in fileNames:
-            tlIndx, fromTime, toTime = Film.parseId(fileName.strip(".pkl"))
-            if tlIndx and fromTime and toTime:
-                if startDate < fromTime < endDate and startDate < toTime < endDate:
-                    filteredNames.append(processedDataDir + "/" + fileName)
-        print(f"found {len(filteredNames)} files")
-        return filteredNames
-
-
 
 
 class NowcastReadHead:
