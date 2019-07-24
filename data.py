@@ -406,7 +406,7 @@ class DataGenerator(k.utils.Sequence):
 
         T, H, W = self.readHeads[0].currentStorm.getNpData().shape
         self.xDim = (batchSize, timeseriesLength, H, W, 1)
-        self.yDim = (batchSize, 4)
+        self.yDim = (batchSize, H, W, 1)
 
         if nrBatchesPerEpoch:
             self.nrBatchesPerEpoch = nrBatchesPerEpoch
@@ -418,8 +418,6 @@ class DataGenerator(k.utils.Sequence):
 
 
     def __getitem__(self, batchNr):
-        print(f"now at batchNr {batchNr}")
-
         dataPoints = np.zeros(self.xDim)
         labels = np.zeros(self.yDim)
 
@@ -427,8 +425,8 @@ class DataGenerator(k.utils.Sequence):
             X, y = self.readHeads[sampleNr % 3].getNextStorm()
             #  X, y = getRandomStorm(60, 100, 100)
             dataPoints[sampleNr, :, :, :, 0] = X
-            labels[sampleNr] = y
-        print(f"now returning {self.batchSize} samples for batch {batchNr}")
+            labels[sampleNr, :, :, 0] = y
+
         return dataPoints, labels
 
 
@@ -471,7 +469,7 @@ class ReadHead:
 
             stormDataUpToT = self.currentStorm.getNpData()[startIndex : endIndex]
             nextFrame = self.currentStorm.getFrameAtIndex(self.currentTime + 1)
-            labels = labelsToArr(nextFrame.labels)
+            nextPoint = nextFrame.data  # labelsToArr(nextFrame.labels)
             dataPoints = padArrayTo(stormDataUpToT, self.timeseriesLength)
 
             self.currentTime += self.timeseriesOffset
@@ -485,9 +483,9 @@ class ReadHead:
             self.currentTime = 2
 
             # print(f"thread {thr.get_ident()}: loading storm from {self.fileNames[self.currentFileIndex]}")
-            dataPoints, labels = self.getNextStorm()
+            dataPoints, nextPoint = self.getNextStorm()
 
-        return dataPoints, labels
+        return dataPoints, nextPoint
 
 
 

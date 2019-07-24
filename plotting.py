@@ -198,9 +198,9 @@ def plotRadolanData(axes, data, attrs, clabel=None):
     pm = ax.pcolormesh(x, y, data, cmap='viridis')
     cb = fig.colorbar(pm, shrink=0.75)
     cb.set_label(clabel)
-    plt.xlabel("x [km]")
-    plt.ylabel("y [km]")
-    plt.title('{0} Product\n{1}'.format(attrs['producttype'], attrs['datetime'].isoformat()))
+    plt.set_xlabel("x [km]")
+    plt.set_ylabel("y [km]")
+    plt.set_title('{0} Product\n{1}'.format(attrs['producttype'], attrs['datetime'].isoformat()))
     plt.xlim((x[0, 0], x[-1, -1]))
     plt.ylim((y[0, 0], y[-1, -1]))
     plt.grid(color='r')
@@ -218,7 +218,7 @@ def movie(fig, axes, data: np.array, labels=[], interval=500):
     def animate(frameNr):
         frame = data[frameNr]
         img.set_data(frame)
-        plt.xlabel("Frame {},  maxval {}".format(frameNr, np.max(frame)))
+        plt.set_xlabel("Frame {},  maxval {}".format(frameNr, np.max(frame)))
         return img, labelsString
 
     animation = FuncAnimation(fig, animate, frames=range(data.shape[0]), interval=interval, repeat=True, repeat_delay=1000)
